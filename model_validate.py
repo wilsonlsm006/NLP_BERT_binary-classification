@@ -1,9 +1,3 @@
-
-# func:根据用户搜索识别是否能打标传奇游戏标签，模型评估
-# 数据目录：./data_input
-# input:test.csv   训练数据集
-# output:./bert_dump/XXX.hdf5 输出训练好的模型
-
 #! -*- coding:utf-8 -*-
 import re, os, json, codecs, gc
 import numpy as np
