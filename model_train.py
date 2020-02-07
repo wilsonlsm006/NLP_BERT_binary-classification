@@ -1,7 +1,11 @@
+# func:根据用户搜索识别是否能打标传奇游戏标签，模型训练
+# input:train.csv  test.csv   训练集和测试集
+# output:XXX.hdf5 输出训练好的模型
+
 #! -*- coding:utf-8 -*-
 import re, os, json, codecs, gc
 import numpy as np
-import pandas as pd阿
+import pandas as pd
 from random import choice
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import KFold, train_test_split
@@ -192,66 +196,6 @@ def build_bert(nclass):
                   metrics=['accuracy', keras_metrics.precision(), keras_metrics.recall()])
     print(model.summary())
     return model
-
-"""
-func:计算模型在测试集上的评价指标
-输入：dataframe,里面必须包含 label，prediction
-输出：计算acc,precision,recall,fscore等
-"""
-from sklearn.metrics import accuracy_score
-from sklearn import metrics
-from sklearn.metrics import confusion_matrix
-def model_val(df):
-    # 计算准确率
-    acc = accuracy_score(df['label'], df['prediction'])
-    # 计算精确率
-    precision = metrics.precision_score(df['label'], df['prediction'])
-    # 计算召回率
-    recall  = metrics.recall_score(df['label'], df['prediction'])
-    # 计算f得分
-    fscore  = metrics.f1_score(df['label'], df['prediction'], average='weighted')
-    # 计算混淆矩阵
-    my_confusion_matrix = confusion_matrix(df['label'], df['prediction'])
-    # 计算auc
-    auc = metrics.roc_auc_score(df['label'], df['prediction'])#验证集上的auc值
-    
-    print("acc is %s,prediction is %s,recall is %s,f_score is %s,auc is %s" %(acc, precision, recall, fscore, auc))
-    print(my_confusion_matrix)
-
-"""
-func:加载模型，并且用于预测新的数据
-输入：需要预测的数据 dataframe, 模型
-输出：预测的数据 np数组
-"""
-def model_load_predict(model_path, predict_df, result_path):
-
-    # 需要将dataframe转化成 np数组格式
-    DATA_LIST_TEST = []
-    for data_row in predict_df.iloc[:].itertuples():
-        DATA_LIST_TEST.append((data_row.ocr, to_categorical(0, NCLASS)))
-    DATA_LIST_TEST = np.array(DATA_LIST_TEST)
-    # 构建模型结构 nclass代表几分类模型
-    my_model = build_bert(NCLASS)
-    # 导入模型权重
-    my_model.load_weights(model_path)
-    # 这里需要得到数据类型都是元组，<class ‘tuple’>
-    test_model_pred = np.zeros((len(DATA_LIST_TEST), NCLASS))
-
-    # 模型预测
-    test_D = data_generator(DATA_LIST_TEST, shuffle=False)
-    test_model_pred = my_model.predict_generator(test_D.__iter__(), steps=len(test_D),verbose=1)
-
-    # 模型预测的数据是 np数组的格式
-    # 需要转化成df格式
-    test_prediction = [np.argmax(x) for x in test_model_pred]
-    
-    test_predict_probability = [softmax(x)[1] for x in test_model_pred]
-    
-    predict_df['prediction'] = test_prediction
-    
-    predict_df['probability'] = test_predict_probability
-
-    predict_df.to_csv(result_path, index=None)
 
 
 if __name__ == '__main__':
