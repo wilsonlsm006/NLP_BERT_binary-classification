@@ -1,13 +1,7 @@
-
-# func:根据用户搜索识别是否能打标传奇游戏标签
-# 数据目录：./data_input
-# input:train.csv  test.csv   训练数据集
-# output:./bert_dump/XXX.hdf5 输出训练好的模型
-
 #! -*- coding:utf-8 -*-
 import re, os, json, codecs, gc
 import numpy as np
-import pandas as pd
+import pandas as pd阿
 from random import choice
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import KFold, train_test_split
