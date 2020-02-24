@@ -18,19 +18,53 @@ import keras_metrics
 from keras.utils import to_categorical
 import datetime
 
+from scipy.special import softmax
+np.set_printoptions(precision=4)
+
+
+# 将模型训练代码封装
+# 通过外部传参应用到不同的任务中
+import argparse
+parser = argparse.ArgumentParser(description='binary_classification_train model')
+
+# 需要传递的参数
+parser.add_argument('--bert_model_name', type=str, default = None)
+parser.add_argument('--test_predict_data', type=str, default = None)
+parser.add_argument('--test_data', type=str, default = None)
+parser.add_argument('--model_load_path', type=str, default = None)
+
+
+args = parser.parse_args()
+
+BERT_MODEL_NAME = args.bert_model_name
+MODEL_LOAD_PATH = args.model_load_path
+TEST_DATA_PATH = args.test_data
+TEST_PREDICT_DATA = args.test_predict_data
+
+print("导入bert模型路径：")
+print(BERT_MODEL_NAME)
+print("模型导入路径：")
+print(MODEL_LOAD_PATH)
+print("测试集路径：")
+print(TEST_DATA_PATH)
+print("测试集预测路径：")
+print(TEST_PREDICT_DATA)
+
+# bert相关配置路径
+# 使用的词表
+dict_path = BERT_MODEL_NAME+"/vocab.txt"
+config_path = BERT_MODEL_NAME+"/bert_config.json"
+checkpoint_path = BERT_MODEL_NAME+"/bert_model.ckpt"
+
+TESTING=True
 
 # bear相关配置
 maxlen = 510
 
-##################################################################################
-# 一些公共类的参数，基本上不会调整
-##################################################################################
-# bert相关配置路径
-# 使用的词表
-dict_path = "./bert_model/vocab.txt"
-config_path = "./bert_model/bert_config.json"
-checkpoint_path = "./bert_model/bert_model.ckpt"
-
+# 模型训练参数
+EPOCH_NUM = 5
+# k折交叉训练
+N_FOLD = 3
 # 标签类别数目
 NCLASS = 2
 
@@ -219,7 +253,7 @@ def model_val(df):
 """
 func:加载模型，并且用于预测新的数据
 输入：需要预测的数据 dataframe, 模型
-输出：预测的数据 np数组
+输出：预测的数据df label,ocr,df
 """
 def model_load_predict(model_path, predict_df, result_path):
 
@@ -247,49 +281,55 @@ def model_load_predict(model_path, predict_df, result_path):
     
     predict_df['prediction'] = test_prediction
     
-    predict_df['probability'] = test_predict_probability
-
-    predict_df.to_csv(result_path, index=None)
-
-if __name__ == '__main__':
-    # 记录代码运行的开始时间
-    starttime = datetime.datetime.now()
+    # 后期可能要输出得分
+    #predict_df['probability'] = test_predict_probability
     
-    ##################################################################################################
-    #   这是模型验证指标需要配置的三个参数
-    # model_path使用模型进行预测的模型路径
-    # test_data_path 测试集路径
-    # test_result_path 测试集预测结果写入路径
-    ##################################################################################################
-    # model_path 手动配置
-    model_path = './bert_dump/XXX.hdf5'
-    # 测试集
-    test_data_path = './data_input/test.csv'
-    test_result_path = './data_input/test_prediction.csv'
+    # 预测数据格式为 ['ocr', 'label', 'prediction']
+    predict_df = predict_df[['ocr', 'label', 'prediction']]
+
+    # 将数据持久化后期可以进行相关分析
+    predict_df.to_csv(result_path, index=None)
+    
+    return predict_df
+
+"""
+func: 模型评估
+输入：需要预测的数据 dataframe, 模型
+输出：预测的数据 np数组
+"""
+def model_evaluate(model_load_path, test_data_path, test_predict_data):
+     # 获取测试数据集
     test_df = pd.read_csv(test_data_path)
+    
+    if TESTING:
+        test_df = test_df.head(1024)
     # 增加模型的健壮性 不管label和ocr的输入顺序
     test_df = test_df[['label', 'ocr']]
     print("模型导入目录：")
-    print(model_path)
+    print(MODEL_LOAD_PATH)
     print("测试集数据")
     print(test_df.shape)
     print(test_df.head(10))
     test_df.columns = ['label', 'ocr']
-
-    # 这里已经获得了测试集的 prediction
-    model_load_predict(model_path, test_df, test_result_path)
-
-    # step4 使用测试集中的label和prediction来计算各项评价指标
-    test_value_df = pd.read_csv(test_result_path)
-    print(test_value_df['label'].value_counts())
-    test_value_df.columns = ['label', 'ocr', 'prediction']
-    # 返回各项指标
+    
+    # 模型预测
+    test_value_df = model_load_predict(model_load_path, test_df, test_predict_data)
+    
+    # 输出评价指标
     model_val(test_value_df)
+    
+if __name__ == '__main__':
+    # 记录代码运行的开始时间
+    starttime = datetime.datetime.now()
+
+    # 模型评估
+    model_evaluate(MODEL_LOAD_PATH, TEST_DATA_PATH, TEST_PREDICT_DATA)
 
     # 记录代码的结束时间
     endtime = datetime.datetime.now()
     time_dur = (endtime - starttime).seconds
     time_dur = time_dur/60
+    
     # 计算耗时
     print("模型测试集效果完成，耗时：")
     print(starttime,endtime,time_dur)
