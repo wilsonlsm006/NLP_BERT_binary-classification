@@ -23,7 +23,7 @@ TEST_PREDICT_DATA=${DATA_PATH}'/test_predict.csv'
 MODEL_LOAD_PATH=${ROOT_PATH}'/model_dump/lsm_test_0224_2219_0.hdf5'
 
 
-python keras_validate_classification.py --bert_model_name=${BERT_MODEL_NAME} \
+python model_evaluate.py --bert_model_name=${BERT_MODEL_NAME} \
     --test_data=${TEST_DATA} \
     --model_load_path=${MODEL_LOAD_PATH} \
     --test_predict_data=${TEST_PREDICT_DATA} 
