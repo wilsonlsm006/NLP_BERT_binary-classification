@@ -22,7 +22,7 @@ TRAIN_DATA=${DATA_PATH}'/train.csv'
 MODEL_SAVE_PATH=${ROOT_PATH}'/model_dump/'${LAB_FLAG}
 
 
-python keras_train_classification.py --bert_model_name=${BERT_MODEL_NAME} \
+python model_train.py --bert_model_name=${BERT_MODEL_NAME} \
     --train_data=${TRAIN_DATA} \
     --lab_flag=${LAB_FLAG} \
     --model_save_path=${MODEL_SAVE_PATH}
