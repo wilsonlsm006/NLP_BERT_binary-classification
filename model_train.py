@@ -21,20 +21,52 @@ import datetime
 from scipy.special import softmax
 np.set_printoptions(precision=4)
 
+
+# 将模型训练代码封装
+# 通过外部传参应用到不同的任务中
+import argparse
+parser = argparse.ArgumentParser(description='binary_classification_train model')
+
+# 需要传递的参数
+parser.add_argument('--bert_model_name', type=str, default = None)
+parser.add_argument('--train_data', type=str, default = None)
+parser.add_argument('--model_save_path', type=str, default = None)
+parser.add_argument('--lab_flag', type=str, default = None)
+
+args = parser.parse_args()
+
+BERT_MODEL_NAME = args.bert_model_name
+LAB_FLAG = args.lab_flag
+MODEL_SAVE_PATH = args.model_save_path
+TRAIN_DATA_PATH = args.train_data
+
+print("导入bert模型路径：")
+print(BERT_MODEL_NAME)
+print("模型存储路径：")
+print(MODEL_SAVE_PATH)
+print("训练集路径：")
+print(TRAIN_DATA_PATH)
+
+# bert相关配置路径
+# 使用的词表
+dict_path = BERT_MODEL_NAME+"/vocab.txt"
+config_path = BERT_MODEL_NAME+"/bert_config.json"
+checkpoint_path = BERT_MODEL_NAME+"/bert_model.ckpt"
+
+
 # bear相关配置
 maxlen = 510
 
-##################################################################################
-# 一些公共类的参数，基本上不会调整
-##################################################################################
-# bert相关配置路径
-# 使用的词表
-dict_path = "./bert_model/vocab.txt"
-config_path = "./bert_model/bert_config.json"
-checkpoint_path = "./bert_model/bert_model.ckpt"
-
+# 模型训练参数
+EPOCH_NUM = 5
+# k折交叉训练
+N_FOLD = 3
 # 标签类别数目
 NCLASS = 2
+
+# 这里有个小trick
+# 通过控制是否实验标志，可以优先保证模型先跑起来
+TESTING=True
 
 token_dict = {}
 with codecs.open(dict_path, 'r', 'utf8') as reader:
@@ -95,20 +127,6 @@ class data_generator:
                     Y = seq_padding(Y)
                     yield [X1, X2], Y[:, 0, :]
                     [X1, X2, Y] = [], [], []
-
-
-"""
-func:将dataframe转化成np数组
-输入：dataframe
-输出：np数组
-"""
-def df_to_nparray(df):
-    DATA_LIST = []
-    for data_row in df.iloc[:].itertuples():
-        DATA_LIST.append((data_row.ocr, to_categorical(data_row.label, NCLASS)))
-    DATA_LIST = np.array(DATA_LIST)
-    return DATA_LIST
-
 
 
 """
@@ -193,82 +211,41 @@ def build_bert(nclass):
     print(model.summary())
     return model
 
-
-if __name__ == '__main__':
-    # 记录代码运行的开始时间
-    train_start_time = datetime.datetime.now()
-
-    ##################################################################################################
-    #   这是模型训练需要配置的三个参数
-    # input:
-    # BERT_MODEL_NAME：使用的bert模型的目录
-    # train_input_path:训练集输入目录
-    # test_input_path:测试集集输入目录
-    # NCLASS：本模型可以用于2分类，也可以用于多分类(大于2)
-    # output:
-    # model_save_path_finame 训练之后模型最终存储在哪里，由两部分组成模型存储目录和实验名称    
-    ##################################################################################################
-    
-    # 模型输入数据：./data_input
-    # train.csv 和 test.csv
-    ROOT_PATH = Path("./") 
-    DATA_ROOT = ROOT_PATH/"data_input" 
-    
-    # 输入输入格式是：ocr,label
-    train_input_path = DATA_ROOT/"train.csv"
-    test_input_path = DATA_ROOT/"test.csv"
-    
-    # 使用的bert模型目录
-    BERT_MODEL_NAME = ROOT_PATH/"bert_model/"
-
-    # 模型存储目录
-    model_save_path = "./bert_dump/"
-    # 可能一天做多个实验
-    exp_name = "20200119_1602"
-    model_save_path_finame = model_save_path+exp_name
-    
-    # 这里有个小trick
-    # 通过控制是否实验标志，可以优先保证模型先跑起来
-    TESTING=True
-    
-    print("导入bert模型路径：")
-    print(BERT_MODEL_NAME)
-    print("模型存储路径：")
-    print(model_save_path_finame)
-    print("训练集路径：")
-    print(train_input_path)
-    print("测试集路径：")
-    print(test_input_path)
-    
-    ############################################################################################################
-    # 模型训练
-    # step1 划分训练集和测试集，获取训练数据 这里已经对训练数据进行了处理 比如NaN已经填充为0
-    train_data_df = pd.read_csv(train_input_path)
-    test_data_df = pd.read_csv(test_input_path)
+"""
+func:模型训练函数
+输入: train_data_path, model_save_path_finame
+输出：训练完成得到的模型 
+"""
+def model_train(train_data_path, model_save_path_finame):
+    # 获取训练数据集
+    train_data_df = pd.read_csv(train_data_path)
     
     if TESTING:
-        train_data_df = test_data_df.head(10240)
-        test_data_df = test_data_df.head(1000)
-    
-    print("train_data_df is shape")
-    print(train_data_df.shape)
-    print("test_data_df is shape")
-    print(test_data_df.shape)
-    
-    # 将dataframe转化成 numpy数组
+        train_data_df = train_data_df.head(1024)
+        
+     # 将dataframe转化成 numpy数组
     DATA_LIST_train = []
     for data_row in train_data_df.iloc[:].itertuples():
         DATA_LIST_train.append((data_row.ocr, to_categorical(data_row.label, NCLASS)))
     DATA_LIST_train = np.array(DATA_LIST_train)
 
-    # step2 模型训练 这里已经训练好模型
     # 模型训练轮数
-    epoch_num = 5
-    # k折较差训练
-    n_fold = 3
-           
-    # 模型训练获取最佳模型
+    epoch_num = EPOCH_NUM
+    # k折交叉训练
+    n_fold = N_FOLD
+    
+    # 模型训练
     run_cv(n_fold, DATA_LIST_train, model_save_path_finame, epoch_num)
+    
+    
+    
+if __name__ == '__main__':
+    # 记录代码运行的开始时间
+    train_start_time = datetime.datetime.now()
+
+    ############################################################################################################
+    # 模型训练
+    model_train(TRAIN_DATA_PATH, MODEL_SAVE_PATH)
     
     # 记录代码的结束时间
     train_end_time = datetime.datetime.now()
